@@ -1,46 +1,84 @@
-import { useState } from 'react'
-export default function RSVPModal({ submitRSVP, config, loading }) {
-  const [open, setOpen] = useState(false)
+import { useEffect, useState } from 'react'
+
+export default function RSVPModal({ submitRSVP, loading, isOpen, onClose }) {
   const [form, setForm] = useState({ guest_name:'', guest_count:1, session:'both', has_children:false, message:'' })
   const [submitting, setSubmitting] = useState(false)
+  const [success, setSuccess] = useState(false)
+  const [guestSuccess, setGuestSuccess] = useState('')
+
+  useEffect(() => {
+    if (!isOpen) {
+      setSuccess(false)
+      setForm({ guest_name:'', guest_count:1, session:'both', has_children:false, message:'' })
+    }
+  }, [isOpen])
+
+  if (!isOpen) return null
+  if (loading) return null
 
   const onSubmit = async (e) => {
-    e.preventDefault();
+    e.preventDefault()
     setSubmitting(true)
     const ok = await submitRSVP(form)
     if (ok) {
-      setForm({ guest_name:'', guest_count:1, session:'both', has_children:false, message:'' })
-      setOpen(false)
+      setGuestSuccess(form.guest_name)
+      setSuccess(true)
+      setTimeout(() => { setSuccess(false); onClose() }, 2600)
     }
     setSubmitting(false)
   }
 
-  if (loading) return <div className='card'><div className='skeleton' /></div>
-
   return (
-    <section className='card'>
-      <h2>RSVP</h2>
-      <button onClick={() => setOpen(true)}>Gửi RSVP</button>
-      {open && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.4)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000 }}>
-          <form onSubmit={onSubmit} style={{ background:'#fff', padding:'1rem', borderRadius:'12px', width:'90%', maxWidth:'480px' }}>
-            <h3>Gửi RSVP</h3>
-            <input required placeholder='Tên' value={form.guest_name} onChange={(e)=>setForm(prev=>({...prev,guest_name:e.target.value}))} />
-            <input required type='number' min='1' value={form.guest_count} onChange={(e)=>setForm(prev=>({...prev,guest_count:Number(e.target.value)}))} />
-            <select value={form.session} onChange={(e)=>setForm(prev=>({...prev,session:e.target.value}))}>
-              <option value='morning'>Sáng</option>
-              <option value='evening'>Chiều</option>
-              <option value='both'>Cả hai</option>
-            </select>
-            <label><input type='checkbox' checked={form.has_children} onChange={e=>setForm(prev=>({...prev,has_children:e.target.checked}))}/> Có trẻ em</label>
-            <textarea placeholder='Lời chúc' value={form.message} onChange={(e)=>setForm(prev=>({...prev,message:e.target.value}))}></textarea>
-            <div style={{ display:'flex', gap:'0.5rem', marginTop:'0.5rem' }}>
-              <button type='submit' disabled={submitting}>{submitting ? 'Đang gửi...' : 'Gửi'}</button>
-              <button type='button' onClick={()=>setOpen(false)}>Hủy</button>
+    <div className='rsvp-overlay' role='dialog' aria-modal='true'>
+      <div className='rsvp-modal'>
+        {!success ? (
+          <>
+            <div className='rsvp-header'>
+              <span className='envelope'>✉</span>
+              <h3>Xác nhận tham dự</h3>
+              <button className='close-btn' onClick={onClose} aria-label='Đóng'>×</button>
             </div>
-          </form>
-        </div>
-      )}
-    </section>
+
+            <form className='rsvp-form' onSubmit={onSubmit}>
+              <label className='field-label'>Họ và tên*</label>
+              <input value={form.guest_name} onChange={(e)=>setForm(prev=>({...prev, guest_name:e.target.value}))} required />
+
+              <label className='field-label'>Số người tham dự</label>
+              <div className='stepper'>
+                <button type='button' onClick={() => setForm(prev => ({ ...prev, guest_count: Math.max(1, prev.guest_count - 1) }))}>−</button>
+                <span>{form.guest_count}</span>
+                <button type='button' onClick={() => setForm(prev => ({ ...prev, guest_count: prev.guest_count + 1 }))}>+</button>
+              </div>
+
+              <label className='field-label'>Tham dự buổi</label>
+              <div className='radio-pills'>
+                {['morning','evening','both'].map((opt) => (
+                  <button key={opt} type='button' className={form.session===opt ? 'active' : ''} onClick={() => setForm(prev=>({...prev,session:opt}))}>{opt==='morning'?'Sáng':opt==='evening'?'Chiều':'Cả hai'}</button>
+                ))}
+              </div>
+
+              <label className='field-label'>Có trẻ em</label>
+              <button type='button' className={`toggle-switch ${form.has_children ? 'on' : ''}`} onClick={()=>setForm(prev=>({...prev, has_children: !prev.has_children }))}>
+                <span className='track'/>
+                <span className='thumb'/>
+              </button>
+
+              <label className='field-label'>Lời chúc</label>
+              <textarea rows='3' value={form.message} onChange={(e)=>setForm(prev=>({...prev, message:e.target.value}))}></textarea>
+
+              <button type='submit' className='btn-primary' disabled={submitting}>
+                {submitting ? <span className='spinner'/> : 'Gửi RSVP'}
+              </button>
+            </form>
+          </>
+        ) : (
+          <div className='rsvp-success'>
+            <div className='checkmark'>✓</div>
+            <h3>Cảm ơn {guestSuccess || ''}!</h3>
+            <p>Chúng tôi rất mong gặp bạn 🎉</p>
+          </div>
+        )}
+      </div>
+    </div>
   )
 }
