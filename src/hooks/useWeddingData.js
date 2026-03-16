@@ -50,15 +50,24 @@ export function useWeddingData() {
   }, [])
 
   useEffect(() => {
-    const sub = supabase
-      .from('wedding_rsvp')
-      .on('*', () => {
+    // Supabase v2 realtime API: .from(...).on is deprecated, dùng channel + postgres_changes
+    const realtimeChannel = supabase
+      .channel('realtime_wedding_rsvp')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'wedding_rsvp'
+      }, () => {
         fetchAll()
       })
       .subscribe()
 
     return () => {
-      supabase.removeSubscription(sub)
+      // unsubs dùng channel unsubscribe/removeChannel
+      realtimeChannel.unsubscribe()
+      if (typeof supabase.removeChannel === 'function') {
+        supabase.removeChannel(realtimeChannel)
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
